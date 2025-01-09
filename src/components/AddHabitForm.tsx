@@ -15,7 +15,7 @@ const AddHabitForm = () => {
   const [frequency, setFrequency] = useState<"daily" | "weekly">("daily");
   const { habits, addHabit } = useHabitStore();
 
-  console.log(habits);
+//   console.log(habits);
   const submitHandler = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {

@@ -1,6 +1,7 @@
 import { Box, Container, Typography } from "@mui/material";
 import "./App.css";
 import AddHabitForm from "./components/AddHabitForm";
+import HabitLists from "./components/HabitLists";
 // import useHabitStore from "./store/store";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
         {/* Form  */}
         <AddHabitForm />
         {/* Lists  */}
+        <HabitLists />
         {/* stats */}
       </Box>
     </Container>

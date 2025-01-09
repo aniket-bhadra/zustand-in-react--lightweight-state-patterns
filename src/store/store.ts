@@ -45,6 +45,26 @@ const useHabitStore = create<HabitState>()(
           };
         });
       },
+      toggleHabit: (id, date) => {
+        set((state) => {
+          return {
+            habits: state.habits.map((habit) => {
+              if (habit.id === id) {
+                return {
+                  ...habit,
+                  completedDates: habit.completedDates.includes(date)
+                    ? habit.completedDates.filter(
+                        (Habitdate) => Habitdate !== date
+                      )
+                    : [...habit.completedDates, date],
+                };
+              } else {
+                return habit;
+              }
+            }),
+          };
+        });
+      },
     };
   })
 );

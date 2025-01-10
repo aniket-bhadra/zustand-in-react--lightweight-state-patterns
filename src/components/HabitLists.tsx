@@ -92,6 +92,7 @@ const HabitLists = () => {
             <LinearProgress
               variant="determinate"
               value={(getStreak(habit) / 30) * 100}
+              sx={{ mt: 2 }}
             />
           </Box>
         </Paper>

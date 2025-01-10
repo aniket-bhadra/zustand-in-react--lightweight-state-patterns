@@ -15,15 +15,20 @@ interface HabitState {
   addHabit: (name: string, frequency: "weekly" | "daily") => void;
   toggleHabit: (id: string, date: string) => void;
   removeHabit: (id: string) => void;
+  fetchHabits: () => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const useHabitStore = create<HabitState>()(
   devtools(
     persist(
-      (set) => {
+      (set,get) => {
         return {
           habits: [],
           yes: true,
+          isLoading: false,
+          error: null,
           addHabit: (name, frequency) => {
             set((state) => {
               return {
@@ -69,6 +74,46 @@ const useHabitStore = create<HabitState>()(
               };
             });
           },
+          fetchHabits: async () => {
+            set(() => {
+              return {
+                isLoading: true,
+              };
+            });
+            try {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              console.log("first");
+              const mockHabits: Habit[] = [
+                {
+                  id: "1",
+                  name: "Reading-books",
+                  frequency: "weekly",
+                  completedDates: [],
+                  createdAt: new Date().toISOString(),
+                },
+                {
+                  id: "2",
+                  name: "gaming",
+                  frequency: "weekly",
+                  completedDates: [],
+                  createdAt: new Date().toISOString(),
+                },
+              ];
+              set(() => {
+                return {
+                  habits: mockHabits,
+                  isLoading: false,
+                };
+              });
+            } catch (error) {
+              set(() => {
+                return {
+                  error: "Failed to fetch",
+                  isLoading: false,
+                };
+              });
+            }
+          },
         };
       },
       {
@@ -90,6 +135,12 @@ export default useHabitStore;
 
 // Functions are not stored but are reinitialized when Zustand runs the store setup again. functions remain in the store's logic, and only state (like habits) is stored and retrieved.
 
-// const { habits, removeHabit, toggleHabit } = useHabitStore();   --here After reload:  
-// - `habits` is **taken from `localStorage`/`sessionStorage`**.  
+// const { habits, removeHabit, toggleHabit } = useHabitStore();   --here After reload:
+// - `habits` is **taken from `localStorage`/`sessionStorage`**.
 // - `removeHabit` and `toggleHabit` are **taken from the store's code** (not storage).
+
+// when using set({ habits: [], yes: false });, it replaces the entire state.
+
+// But when using set(() => ({ isLoading: true }));, it updates only isLoading, keeping the rest intact.
+
+// ✅ Spreading state (...state) is NOT necessary when using a function—Zustand merges updates automatically.

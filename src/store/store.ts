@@ -23,7 +23,7 @@ interface HabitState {
 const useHabitStore = create<HabitState>()(
   devtools(
     persist(
-      (set,get) => {
+      (set, get) => {
         return {
           habits: [],
           yes: true,
@@ -81,6 +81,23 @@ const useHabitStore = create<HabitState>()(
               };
             });
             try {
+              //checking- is habits exist already? if yes then no need to fetch,it automatically gets taken from localstorage,because of  persist middleware localstorage is in sync with the states all the time,no need to fetch if it is exist.
+
+              //get() provides access to the current global state managed by Zustand, not directly from localStorage.
+              //Zustand's persist middleware keeps localStorage in sync with the state.
+              // When the app reloads, Zustand hydrates (restores) state from localStorage before fetchHabits() runs.
+              // So, get().habits checks the global state, which might have been restored from localStorage, but get() itself does not fetch from localStorage directly—it just accesses the Zustand store.
+
+              const existingHabits = get().habits;
+              if (existingHabits.length > 0) {
+                set(() => {
+                  return {
+                    isLoading: false,
+                  };
+                });
+                return;
+              }
+
               await new Promise((resolve) => setTimeout(resolve, 1000));
               console.log("first");
               const mockHabits: Habit[] = [

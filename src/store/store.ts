@@ -73,7 +73,7 @@ const useHabitStore = create<HabitState>()(
       },
       {
         name: "habits",
-        storage: createJSONStorage(() => sessionStorage)
+        // storage: createJSONStorage(() => sessionStorage)
       }
     )
   )

@@ -1,50 +1,135 @@
-# React + TypeScript + Vite
+## Installation
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```sh
+npm install zustand
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Setup a Store (`store.js`)
 
 ```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+import { create } from 'zustand';
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+const useStore = create((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+}));
+
+export default useStore;
 ```
+
+## Accessing the State Anywhere
+
+```js
+const { count, increment } = useStore();
+```
+
+## Storing State in `localStorage` / `sessionStorage`
+
+We can achieve this with the `persist` middleware:
+
+```js
+import { create } from 'zustand';
+import { persist, devtools, createJSONStorage } from 'zustand/middleware';
+
+const useStore = create(
+  devtools(
+    persist(
+      (set) => ({
+        count: 0,
+        increment: () => set((state) => ({ count: state.count + 1 })),
+      }),
+      {
+        name: 'counter-storage',
+        storage: createJSONStorage(() => sessionStorage),
+      }
+    )
+  )
+);
+```
+
+### Notes:
+- Only **state properties** (like `habits`, `count`) are saved.
+- Functions (like `removeHabit`, `addHabit`) **are not stored** because they can't be serialized.
+- `createJSONStorage` converts data into JSON before storing it and back when retrieving it.
+- If no storage is specified, Zustand defaults to `localStorage`.
+- Functions remain in the store logic and are reinitialized when the store is set up again.
+
+#### Example After Reload:
+```js
+const { habits, removeHabit, toggleHabit } = useHabitStore();
+```
+- `habits` is **loaded from `localStorage`/`sessionStorage`**.
+- `removeHabit` and `toggleHabit` **come from the store logic**.
+
+Zustand's `persist` middleware keeps `localStorage` in sync with the state.
+
+---
+
+## Updating the State
+
+Use the `set()` method:
+
+```js
+set({ habits: [], yes: false }); // Replaces entire state
+set(() => ({ isLoading: true })); // Updates only `isLoading`
+```
+
+### Updating Arrays in State
+- Adding new elements: `[...existingElements, newElement]`
+- Updating elements: **Don't use `.push()` directly**
+  - Instead, reassign: `set({ habits: [...state.habits, newHabit] })`
+  - Use methods that return new arrays: `.filter()`, `.map()`
+
+#### Example - Removing an Item:
+
+```js
+const useStore = create((set) => ({
+  count: 0,
+  removeHabit: (id) => {
+    //set used immediately
+    set((state) => ({
+      habits: state.habits.filter((habit) => habit.id !== id),
+    }));
+  },
+}));
+```
+
+#### Example - Updating After an Async Operation:
+
+```js
+const useStore = create((set, get) => ({
+  isLoading: false,
+  fetchHabits: async () => {
+    set(() => ({ isLoading: true }));
+
+    try {
+      const existingHabits = get().habits;
+      if (existingHabits.length > 0) {
+        set(() => ({ isLoading: false }));
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log("Fetching habits...");
+
+      const mockHabits = [
+        { id: "1", name: "Reading-books", frequency: "weekly", completedDates: [], createdAt: new Date().toISOString() },
+        { id: "2", name: "Gaming", frequency: "weekly", completedDates: [], createdAt: new Date().toISOString() }
+      ];
+    //set used after an operation
+      set(() => ({
+        habits: mockHabits,
+        isLoading: false,
+      }));
+    } catch (error) {
+      set(() => ({ error: "Failed to fetch", isLoading: false }));
+    }
+  },
+}));
+```
+
+### Notes:
+- Always use `set()` for updates, whether immediate or after an operation.
+- `get()` gives access to the current state but does not fetch from storage.
+- Use `get()` inside `set()` for accessing the current state.
+- Use `get()` outside `set()` to access global state directly.

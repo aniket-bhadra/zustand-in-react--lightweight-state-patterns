@@ -84,7 +84,6 @@ const useHabitStore = create<HabitState>()(
               //checking- is habits exist already? if yes then no need to fetch,it automatically gets taken from localstorage,because of  persist middleware localstorage is in sync with the states all the time,no need to fetch if it is exist.
 
               //get() provides access to the current global state managed by Zustand, not directly from localStorage.
-              //Zustand's persist middleware keeps localStorage in sync with the state.
               // When the app reloads, Zustand hydrates (restores) state from localStorage before fetchHabits() runs.
               // So, get().habits checks the global state, which might have been restored from localStorage, but get() itself does not fetch from localStorage directly—it just accesses the Zustand store.
 
@@ -143,21 +142,8 @@ const useHabitStore = create<HabitState>()(
 
 export default useHabitStore;
 
-// //here only the keys associated with data, like habits,yes,are persisted locally,not the key associated with methods like removeHabit,..
-// createJSONStorage converts the data into JSON before storing it using the given storage API (like localStorage or sessionStorage). When retrieving data, it converts it back to its original format.
 
-// Only state properties (like habits, yes) are saved, but functions (like removeHabit, addHabit) are not stored because they can't be serialized.
 
-// If you don’t specify a storage key, Zustand will use localStorage by default, meaning all this process (conversion and storage) happens in localStorage.
 
-// Functions are not stored but are reinitialized when Zustand runs the store setup again. functions remain in the store's logic, and only state (like habits) is stored and retrieved.
 
-// const { habits, removeHabit, toggleHabit } = useHabitStore();   --here After reload:
-// - `habits` is **taken from `localStorage`/`sessionStorage`**.
-// - `removeHabit` and `toggleHabit` are **taken from the store's code** (not storage).
 
-// when using set({ habits: [], yes: false });, it replaces the entire state.
-
-// But when using set(() => ({ isLoading: true }));, it updates only isLoading, keeping the rest intact.
-
-// ✅ Spreading state (...state) is NOT necessary when using a function—Zustand merges updates automatically.

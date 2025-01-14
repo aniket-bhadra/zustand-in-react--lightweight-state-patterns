@@ -1,3 +1,11 @@
+# Learning Notes: 
+
+## About This Repository
+
+This repository serves as a personal resource to document my learning journey as I explore Zustand for state management in React.
+
+These notes are primarily created for my own revision and to solidify my understanding of key concepts. However, they are structured in a way that can also help others understand Zustand and its various features, including state persistence, updating mechanisms, and different approaches to structuring stores.
+
 ## Installation
 
 ```sh
@@ -133,3 +141,78 @@ const useStore = create((set, get) => ({
 - `get()` gives access to the current state but does not fetch from storage.
 - Use `get()` inside `set()` for accessing the current state.
 - Use `get()` outside `set()` to access global state directly.
+
+---
+
+## Managing Multiple States
+
+### Using Slices
+
+There are two ways to create slices in Zustand:
+
+#### 1️⃣ Slices as Objects
+
+```js
+const useStore = create((set) => ({
+  countSlice: {
+    count: 0,
+    setCount: (value) => set((state) => ({ countSlice: { ...state.countSlice, count: value } })),
+  },
+  taskSlice: {
+    tasks: [],
+    updateTask: (task) => set((state) => ({ taskSlice: { ...state.taskSlice, tasks: [...state.taskSlice.tasks, task] } })),
+  },
+}));
+
+// Access 
+const { count, setCount } = useStore((state) => state.countSlice);
+const { tasks, updateTask } = useStore((state) => state.taskSlice);
+```
+
+#### 2️⃣ Slices as Functions
+
+```js
+const createCountSlice = (set) => ({
+  count: 0,
+  setCount: (value) => set(() => ({ count: value })),
+});
+
+const createTaskSlice = (set) => ({
+  tasks: [],
+  updateTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
+});
+
+const useStore = create((set) => ({
+  ...createCountSlice(set),
+  ...createTaskSlice(set),
+}));
+
+// Access
+const { count, setCount } = useStore();
+const { tasks, updateTask } = useStore();
+```
+
+### Key Differences
+- **Object slices:** Stored inside the main store, requiring `(state.countSlice.count)`.
+- **Function slices:** Directly merged into the store, allowing `useStore().count`.
+
+---
+
+## Creating Separate Stores
+
+```js
+const useCountStore = create((set) => ({
+  count: 0,
+  setCount: (value) => set({ count: value }),
+}));
+
+const useTaskStore = create((set) => ({
+  tasks: [],
+  updateTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
+}));
+
+// Access
+const { count, setCount } = useCountStore();
+const { tasks, updateTask } = useTaskStore();
+```
+

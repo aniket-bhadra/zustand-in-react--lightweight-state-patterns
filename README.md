@@ -17,12 +17,13 @@
 6. [Using get() to Access Current State](#using-get-to-access-current-state)
 7. [Managing Multiple States](#managing-multiple-states)
    - [Using Slices](#using-slices)
-   - [Slices as Objects](#1️⃣-slices-as-objects)
-   - [Slices as Functions](#2️⃣-slices-as-functions)
+   - [Slices as Objects](#slices-as-objects)
+   - [Slices as Functions](#slices-as-functions)
    - [Key Differences Between Slice Approaches](#key-differences-between-slice-approaches)
 8. [Creating Separate Stores](#creating-separate-stores)
 9. [Zustand vs Redux: Key Differences](#zustand-vs-redux-key-differences)
 10. [Best Practices](#best-practices)
+11. [Selecting Multiple Values with useShallow](#selecting-multiple-values-with-useshallow)
 
 ---
 
@@ -37,7 +38,7 @@ npm install zustand
 ## Setup a Store (`store.js`)
 
 ```js
-import { create } from 'zustand';
+import { create } from "zustand";
 
 const useStore = create((set) => ({
   count: 0,
@@ -60,11 +61,11 @@ export default useStore;
 ## Accessing the State Anywhere
 
 ```js
-import useStore from './store';
+import useStore from "./store";
 
 function Counter() {
   const { count, increment } = useStore();
-  
+
   return (
     <div>
       <p>Count: {count}</p>
@@ -105,8 +106,8 @@ const increment = useStore((state) => state.increment);
 We can achieve this with the `persist` middleware:
 
 ```js
-import { create } from 'zustand';
-import { persist, devtools, createJSONStorage } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist, devtools, createJSONStorage } from "zustand/middleware";
 
 const useStore = create(
   devtools(
@@ -116,11 +117,11 @@ const useStore = create(
         increment: () => set((state) => ({ count: state.count + 1 })),
       }),
       {
-        name: 'counter-storage', // Key name in localStorage/sessionStorage
+        name: "counter-storage", // Key name in localStorage/sessionStorage
         storage: createJSONStorage(() => sessionStorage), // Choose storage type
-      }
-    )
-  )
+      },
+    ),
+  ),
 );
 
 export default useStore;
@@ -130,12 +131,12 @@ export default useStore;
 
 1. **On state change:** The middleware serializes the state to JSON and saves it to storage.
 2. **On page load:** The middleware checks if data exists in storage under the specified `name` key.
-3. **If found:** Deserializes the JSON and initializes the store with that data.
+3. **If found:** Deserializes the JSON and merges it into the store's initial state.
 4. **If not found:** Uses the default initial state defined in the store.
 
 ### What Gets Stored
 
-**Only state properties** are stored:
+By default, the whole state is passed to `JSON.stringify`, so **only state properties end up stored** (functions are dropped during serialization):
 
 ```js
 {
@@ -182,27 +183,29 @@ const { habits, removeHabit, toggleHabit } = useHabitStore();
 
 ### Basic Updates with set()
 
-Use the `set()` method to update state:
+Use the `set()` method to update state. **`set()` shallow-merges** what you give it into the existing state, so properties you don't mention are kept:
 
 ```js
-// Replace entire state object (⚠️ Use carefully - loses other state properties!)
-set({ habits: [], yes: false });
-
-// Merge with existing state (✅ Recommended - preserves other properties)
-set((state) => ({ isLoading: true }));
-```
-
-**Important difference:**
-
-```js
-// ❌ This replaces the entire state, removing 'count' and other properties
+// Object form - merges with existing state, other properties are preserved
 set({ isLoading: true });
 
-// ✅ This merges with existing state, preserving 'count' and other properties
-set((state) => ({ isLoading: true }));
+// Function form - use it when the new value depends on the previous state
+set((state) => ({ count: state.count + 1 }));
 ```
 
-**Best practice:** Always use the function form `set((state) => ({ ... }))` to ensure you don't accidentally lose state properties.
+**Replacing the whole state (rarely needed):**
+
+```js
+// Passing `true` as the second argument REPLACES the state instead of merging.
+// ⚠️ Use carefully - every property (including actions) must be provided!
+set({ count: 0 }, true);
+```
+
+**Important notes:**
+
+- Both the object form and the function form **merge** by default.
+- Merging is **shallow** - nested objects are replaced, not merged (see [Slices as Objects](#slices-as-objects)).
+- Use the function form `set((state) => ({ ... }))` when the update needs the current state; otherwise the object form is fine.
 
 ### Updating Arrays in State
 
@@ -274,7 +277,7 @@ const useStore = create((set, get) => ({
     try {
       // Access current state with get()
       const existingHabits = get().habits;
-      
+
       if (existingHabits.length > 0) {
         set({ isLoading: false });
         return; // Exit early if data already loaded
@@ -285,25 +288,24 @@ const useStore = create((set, get) => ({
       console.log("Fetching habits...");
 
       const mockHabits = [
-        { 
-          id: "1", 
-          name: "Reading-books", 
-          frequency: "weekly", 
-          completedDates: [], 
-          createdAt: new Date().toISOString() 
+        {
+          id: "1",
+          name: "Reading-books",
+          frequency: "weekly",
+          completedDates: [],
+          createdAt: new Date().toISOString(),
         },
-        { 
-          id: "2", 
-          name: "Gaming", 
-          frequency: "weekly", 
-          completedDates: [], 
-          createdAt: new Date().toISOString() 
-        }
+        {
+          id: "2",
+          name: "Gaming",
+          frequency: "weekly",
+          completedDates: [],
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       // set() used after async operation completes
       set({ habits: mockHabits, isLoading: false });
-      
     } catch (error) {
       set({ error: "Failed to fetch", isLoading: false });
     }
@@ -329,15 +331,15 @@ const useStore = create((set, get) => ({
   count: 0,
   increment: () => {
     const currentCount = get().count; // Access current state
-    console.log('Current count:', currentCount);
+    console.log("Current count:", currentCount);
     set({ count: currentCount + 1 });
   },
 }));
 ```
 
-**Two ways to use `get()`:**
+**Two ways to read the current state:**
 
-### 1. Inside actions (within the store definition):
+### 1. Inside actions (using `get()` in the store definition):
 
 ```js
 const useStore = create((set, get) => ({
@@ -349,16 +351,16 @@ const useStore = create((set, get) => ({
 }));
 ```
 
-### 2. Outside React components (accessing store directly):
+### 2. Outside React components (using `getState()` on the hook):
 
 ```js
 // Access state outside of React components
 const currentState = useStore.getState();
-console.log('Current count:', currentState.count);
+console.log("Current count:", currentState.count);
 
 // Subscribe to changes outside React
 const unsubscribe = useStore.subscribe((state) => {
-  console.log('State changed:', state);
+  console.log("State changed:", state);
 });
 ```
 
@@ -377,25 +379,25 @@ const unsubscribe = useStore.subscribe((state) => {
 
 Slices help organize large stores by splitting state into logical sections.
 
-### 1️⃣ Slices as Objects
+### Slices as Objects
 
 ```js
 const useStore = create((set) => ({
   countSlice: {
     count: 0,
-    setCount: (value) => 
-      set((state) => ({ 
-        countSlice: { ...state.countSlice, count: value } 
+    setCount: (value) =>
+      set((state) => ({
+        countSlice: { ...state.countSlice, count: value },
       })),
   },
   taskSlice: {
     tasks: [],
-    updateTask: (task) => 
-      set((state) => ({ 
-        taskSlice: { 
-          ...state.taskSlice, 
-          tasks: [...state.taskSlice.tasks, task] 
-        } 
+    updateTask: (task) =>
+      set((state) => ({
+        taskSlice: {
+          ...state.taskSlice,
+          tasks: [...state.taskSlice.tasks, task],
+        },
       })),
   },
 }));
@@ -408,10 +410,10 @@ const { tasks, updateTask } = useStore((state) => state.taskSlice);
 **Characteristics:**
 
 - State is **nested** under slice names.
-- Requires spreading the slice when updating: `{ ...state.countSlice, ... }`
+- Requires spreading the slice when updating (`set` only merges the top level): `{ ...state.countSlice, ... }`
 - Access requires selector: `(state) => state.countSlice`
 
-### 2️⃣ Slices as Functions
+### Slices as Functions
 
 ```js
 const createCountSlice = (set) => ({
@@ -421,8 +423,7 @@ const createCountSlice = (set) => ({
 
 const createTaskSlice = (set) => ({
   tasks: [],
-  updateTask: (task) => 
-    set((state) => ({ tasks: [...state.tasks, task] })),
+  updateTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
 });
 
 const useStore = create((set) => ({
@@ -443,14 +444,14 @@ const { count, setCount, tasks, updateTask } = useStore();
 
 ### Key Differences Between Slice Approaches
 
-| Feature                | Object Slices                                        | Function Slices                          |
-| ---------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| **State Structure**    | Nested (`state.countSlice.count`)                    | Flat (`state.count`)                     |
-| **Access**             | Requires selector: `(state) => state.countSlice`     | Direct: `useStore()`                     |
-| **Updates**            | Must spread slice: `{ ...state.countSlice, count }` | Direct: `{ count: value }`               |
-| **Organization**       | Groups state explicitly                              | Groups via separate files/functions      |
-| **TypeScript**         | More complex types                                   | Simpler type inference                   |
-| **Recommended for**    | Small apps with clear boundaries                     | Large apps, better scalability           |
+| Feature             | Object Slices                                       | Function Slices                     |
+| ------------------- | --------------------------------------------------- | ----------------------------------- |
+| **State Structure** | Nested (`state.countSlice.count`)                   | Flat (`state.count`)                |
+| **Access**          | Requires selector: `(state) => state.countSlice`    | Direct: `useStore()`                |
+| **Updates**         | Must spread slice: `{ ...state.countSlice, count }` | Direct: `{ count: value }`          |
+| **Organization**    | Groups state explicitly                             | Groups via separate files/functions |
+| **TypeScript**      | More complex types                                  | Simpler type inference              |
+| **Recommended for** | Small apps with clear boundaries                    | Large apps, better scalability      |
 
 **When to use which:**
 
@@ -475,9 +476,10 @@ const useCountStore = create((set) => ({
 const useTaskStore = create((set) => ({
   tasks: [],
   addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
-  removeTask: (id) => set((state) => ({ 
-    tasks: state.tasks.filter((task) => task.id !== id) 
-  })),
+  removeTask: (id) =>
+    set((state) => ({
+      tasks: state.tasks.filter((task) => task.id !== id),
+    })),
 }));
 
 // Usage in components
@@ -501,18 +503,18 @@ const { tasks, addTask } = useTaskStore();
 
 ## Zustand vs Redux: Key Differences
 
-| Feature                  | Zustand                                | Redux                                     |
-| ------------------------ | -------------------------------------- | ----------------------------------------- |
-| **Boilerplate**          | Minimal (no actions/reducers needed)   | Verbose (actions, reducers, constants)    |
-| **Setup**                | Single `create()` call                 | Store, reducers, actions, middleware      |
-| **State Updates**        | Direct with `set()`                    | Dispatch actions → reducers               |
-| **Async**                | Built-in (just use async functions)    | Requires middleware (thunk, saga)         |
-| **DevTools**             | Optional middleware                    | Built-in with Redux DevTools              |
-| **TypeScript**           | Excellent (automatic inference)        | Good (requires manual types)              |
-| **Learning Curve**       | Easy                                   | Steeper                                   |
-| **Bundle Size**          | ~1KB                                   | ~3KB (Redux) + middleware                 |
-| **Middleware**           | Optional                               | Core concept                              |
-| **Multiple Stores**      | Yes (encouraged for separation)        | Typically one store                       |
+| Feature             | Zustand                              | Redux                                    |
+| ------------------- | ------------------------------------ | ---------------------------------------- |
+| **Boilerplate**     | Minimal (no actions/reducers needed) | Verbose (actions, reducers, constants)   |
+| **Setup**           | Single `create()` call               | Store, reducers, actions, middleware     |
+| **State Updates**   | Direct with `set()`                  | Dispatch actions → reducers              |
+| **Async**           | Built-in (just use async functions)  | Requires middleware (thunk, saga)        |
+| **DevTools**        | Optional middleware                  | Built-in with Redux DevTools             |
+| **TypeScript**      | Good (type the store once)           | Good (requires typed hooks/manual types) |
+| **Learning Curve**  | Easy                                 | Steeper                                  |
+| **Bundle Size**     | ~1KB                                 | Larger (Redux Toolkit + React-Redux)     |
+| **Middleware**      | Optional                             | Core concept                             |
+| **Multiple Stores** | Yes (supported)                      | Typically one store                      |
 
 **When to choose Zustand:**
 
@@ -541,8 +543,9 @@ const useStore = create((set) => ({
   increment: () => set((state) => ({ count: state.count + 1 })),
 }));
 
-// ❌ Avoid - actions defined separately
-const increment = () => useStore.setState((state) => ({ count: state.count + 1 }));
+// ⚠️ Also valid, but less tidy - actions defined outside the store
+const increment = () =>
+  useStore.setState((state) => ({ count: state.count + 1 }));
 ```
 
 ### 2. Use Selectors for Performance
@@ -568,13 +571,13 @@ const useStore = create((set) => ({
 
 ### 4. Use TypeScript for Type Safety
 
-```js
+```ts
 interface CountState {
   count: number;
   increment: () => void;
 }
 
-const useStore = create<CountState>((set) => ({
+const useStore = create<CountState>()((set) => ({
   count: 0,
   increment: () => set((state) => ({ count: state.count + 1 })),
 }));
@@ -598,15 +601,17 @@ set((state) => {
 ```js
 // ✅ Good - only persist necessary data
 persist(
-  (set) => ({ /* store */ }),
+  (set) => ({
+    /* store */
+  }),
   {
-    name: 'app-storage',
-    partialize: (state) => ({ 
+    name: "app-storage",
+    partialize: (state) => ({
       user: state.user, // Only persist user data
       // Don't persist temporary UI state
     }),
-  }
-)
+  },
+);
 ```
 
 ### 7. Handle Async Errors
@@ -628,4 +633,35 @@ const useStore = create((set) => ({
 }));
 ```
 
---
+---
+
+## Selecting Multiple Values with useShallow
+
+Selectors are great for one value, but what if you want **two or more values** without subscribing to the whole store?
+
+**The problem:** returning a new object from a selector creates a _new reference every time_, so the component re-renders on every store change (and in Zustand v5 it can even cause an infinite-loop error).
+
+```js
+// ❌ New object on every call -> unnecessary re-renders / loop error in v5
+const { count, tasks } = useStore((state) => ({
+  count: state.count,
+  tasks: state.tasks,
+}));
+```
+
+**The fix:** wrap the selector in `useShallow`. It compares the _contents_ of the object (one level deep) instead of the reference.
+
+```js
+import { useShallow } from "zustand/react/shallow";
+
+// ✅ Re-renders only when 'count' or 'tasks' actually change
+const { count, tasks } = useStore(
+  useShallow((state) => ({ count: state.count, tasks: state.tasks })),
+);
+```
+
+**Quick rule of thumb:**
+
+- One value → `useStore((state) => state.count)`
+- Several values → `useStore(useShallow((state) => ({ ... })))`
+- Everything → `useStore()` (re-renders on any change)
